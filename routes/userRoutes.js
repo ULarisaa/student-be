@@ -1,7 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { getUserByEmail, validatePassword, createUser } = require('../database/user'); // Import necessary functions
+const { getUserByEmail, createUser } = require('../database/user'); // Import necessary functions
+
+// Your secret key for signing the JWT
+const JWT_SECRET = 'your-secret-key'; // You can make this more secure and store it in an environment variable
 
 // POST /register: Handles user registration
 router.post('/register', async (req, res) => {
@@ -24,6 +28,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /login: Handles user login and generates JWT
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -41,10 +46,18 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid password' });
     }
 
-    // Send user details (including first and last name) in the response
+    // Create a JWT token
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role }, // Payload
+      JWT_SECRET, // Secret key
+      { expiresIn: '1h' } // Token expiration time
+    );
+
+    // Send the token in the response
     return res.json({
       success: true,
       message: 'Login successful',
+      token, // Include the token
       role: user.role,
       firstName: user.first_name,
       lastName: user.last_name,
@@ -56,6 +69,5 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
-
 
 module.exports = router;
