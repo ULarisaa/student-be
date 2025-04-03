@@ -5,7 +5,7 @@ const router = express.Router();
 const { getUserByEmail, createUser } = require('../database/user'); // Import necessary functions
 
 // Your secret key for signing the JWT
-const JWT_SECRET = 'your-secret-key'; // You can make this more secure and store it in an environment variable
+const JWT_SECRET = 'Secret'; // You can make this more secure and store it in an environment variable
 
 // POST /register: Handles user registration
 router.post('/register', async (req, res) => {

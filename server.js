@@ -6,6 +6,7 @@ const { runJavaCode } = require('./functions/java');
 const userRoutes = require('./routes/userRoutes');
 const coursesRoutes = require('./routes/coursesRoutes');
 const testsRoutes = require('./routes/testsRoutes');
+const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const app = express();
 const port = 5000;
 
@@ -17,6 +18,7 @@ app.use(express.json()); // Middleware to parse JSON bodies
 app.use('/user', userRoutes);
 app.use('/course', coursesRoutes);
 app.use('/test', testsRoutes);
+app.use('/enroll', enrollmentRoutes);
 
 // POST /run-java (Java code execution route)
 app.post('/run-java', async (req, res) => {
