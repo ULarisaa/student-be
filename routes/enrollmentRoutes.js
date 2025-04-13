@@ -23,11 +23,16 @@ router.post("/", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 // Teacher approves or denies enrollment
 router.put("/:enrollmentId", authenticateToken, async (req, res) => {
   const { enrollmentId } = req.params;
   const { status } = req.body; // 'approved' or 'denied'
+  
+  // Validate status value
+  if (!['approved', 'denied'].includes(status)) {
+    return res.status(400).json({ error: "Invalid status" });
+  }
+
   const teacherId = req.user.id; // Get the teacher ID from the JWT token
   
   try {
@@ -51,12 +56,21 @@ router.put("/:enrollmentId", authenticateToken, async (req, res) => {
   }
 });
 
-// Get all pending enrollments (for the teacher to view)
+// Get all pending enrollments (for the teacher to view), either all or for a specific course
 router.get("/pending", authenticateToken, async (req, res) => {
   const teacherId = req.user.id; // Get the teacher ID from the JWT token
+  const courseId = req.query.courseId; // Get the courseId from query parameters, if provided
   
   try {
-    const pendingEnrollments = await enrollmentQueries.getPendingEnrollments(teacherId);
+    let pendingEnrollments;
+    if (courseId) {
+      // Fetch pending enrollments for a specific course
+      pendingEnrollments = await enrollmentQueries.getPendingEnrollmentsByCourse(teacherId, courseId);
+    } else {
+      // Fetch all pending enrollments for the teacher's courses
+      pendingEnrollments = await enrollmentQueries.getPendingEnrollments(teacherId);
+    }
+
     res.json(pendingEnrollments);
   } catch (error) {
     console.error("Error fetching pending enrollments:", error);
@@ -64,4 +78,22 @@ router.get("/pending", authenticateToken, async (req, res) => {
   }
 });
 
+// Get all approved enrollments for a student
+router.get("/approved", authenticateToken, async (req, res) => {
+  const studentId = req.user.id; // Get the student ID from the JWT token
+  
+  try {
+    // Fetch all approved enrollments for the student
+    const approvedEnrollments = await enrollmentQueries.getApprovedEnrollmentsForStudent(studentId);
+
+    if (approvedEnrollments.length === 0) {
+      return res.status(404).json({ error: "No approved enrollments found for this student" });
+    }
+
+    res.json(approvedEnrollments);
+  } catch (error) {
+    console.error("Error fetching approved enrollments:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 module.exports = router;
