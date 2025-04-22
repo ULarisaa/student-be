@@ -13,20 +13,35 @@ async function getCoursesByTeacher(teacherId) {
     throw error;
   }
 }
-
 // Get a specific course by its ID
 async function getCourseById(courseId) {
-  const query = 'SELECT * FROM public.courses WHERE id = $1';
+  const query = `
+    SELECT 
+      c.id,
+      c.name,
+      c.description,
+      c.semester,
+      c.is_active,
+      u.first_name || ' ' || u.last_name AS teacher_name,
+      u.email AS teacher_email  -- Added the teacher's email
+    FROM public.courses c
+    JOIN public."user" u ON c.teacher_id = u.id
+    WHERE c.id = $1
+  `;
   const values = [courseId];
 
   try {
     const result = await pool.query(query, values);
-    return result.rows[0];
+    if (result.rows.length === 0) {
+      throw new Error("Course not found");
+    }
+    return result.rows[0]; // Return course with teacher's name and email
   } catch (error) {
     console.error("Error fetching course:", error);
     throw error;
   }
 }
+
 
 async function createCourse(teacherId, name, description, semester, isActive) {
   const query = `

@@ -15,7 +15,7 @@ router.get("/:courseId/tests", async (req, res) => {
 });
 
 // Get a specific test by its ID
-router.get("/test/:testId", async (req, res) => {
+router.get("/:testId", async (req, res) => {
   const { testId } = req.params;
   try {
     const test = await testQueries.getTestById(testId);
@@ -29,24 +29,31 @@ router.get("/test/:testId", async (req, res) => {
   }
 });
 
-// Create a new test for a specific course
-router.post("/:courseId/tests", async (req, res) => {
+router.post("/:courseId/create", async (req, res) => {
   const { courseId } = req.params;
-  const { name, startTime, duration, category, questions } = req.body; // Assuming you are adding questions to the test
+  const { name, startTime, duration, questions } = req.body;
 
   // Validate input data
-  if (!name || !startTime || !duration || !category || !questions || questions.length === 0) {
+  if (!name || !startTime || !duration || !questions || questions.length === 0) {
     return res.status(400).json({ error: "Please provide all required fields including at least one question." });
   }
 
   try {
-    const testId = await testQueries.createTest(courseId, name, startTime, duration, category, questions);
+    // Create the test and get the testId
+    const testId = await testQueries.createTest(courseId, name, startTime, duration);
+    
+    // Insert the questions associated with this test
+    await Promise.all(questions.map((question) => 
+      testQueries.createQuestion(testId, question)
+    ));
+
     res.status(201).json({ id: testId, message: "Test created successfully" });
   } catch (error) {
     console.error("Error creating test:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 // Update an existing test (e.g., updating the status or details of a test)
 router.put("/:testId", async (req, res) => {

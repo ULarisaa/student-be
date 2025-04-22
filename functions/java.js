@@ -3,8 +3,14 @@
 const fs = require('fs');
 const { exec } = require('child_process');
 
-// Function to write Java code to a file
-function writeJavaCodeToFile(code, filename = 'Main.java') {
+// Extract the public class name from the code
+function extractClassName(code) {
+    const match = code.match(/public\s+class\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    return match ? match[1] : 'Main'; // Fallback to Main if no match found
+}
+
+// Write Java code to file
+function writeJavaCodeToFile(code, filename) {
     try {
         fs.writeFileSync(filename, code);
         return null;  // No error
@@ -13,8 +19,8 @@ function writeJavaCodeToFile(code, filename = 'Main.java') {
     }
 }
 
-// Function to compile Java code
-function compileJavaCode(filename = 'Main.java') {
+// Compile Java code
+function compileJavaCode(filename) {
     const command = `javac ${filename}`;
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
@@ -27,39 +33,41 @@ function compileJavaCode(filename = 'Main.java') {
     });
 }
 
-// Function to execute compiled Java program
-function executeJavaCode(filename = 'Main') {
-    return new Promise((resolve, reject) => {
-        exec(`java ${filename}`, (execError, execStdout, execStderr) => {
-            if (execError) {
-                reject(`Runtime Error: ${execStderr}`);
-            } else {
-                resolve(execStdout);
-            }
-        });
-    });
-}
+// Add input parameter
+async function runJavaCode(code, inputData = "") {
+    const className = extractClassName(code);
+    const filename = `${className}.java`;
 
-// Utility function to run the entire Java code execution process
-async function runJavaCode(code) {
-    const filename = 'Main.java';
-
-    // Write Java code to file
     const writeError = writeJavaCodeToFile(code, filename);
-    if (writeError) {
-        return { error: writeError };
-    }
+    if (writeError) return { error: writeError };
 
     try {
-        // Compile the Java code
         await compileJavaCode(filename);
 
-        // Execute the Java code
-        const output = await executeJavaCode('Main');
-        return { output };  // Return the output of the Java program
+        const output = await executeJavaCodeWithInput(className, inputData);
+        return { output };
     } catch (err) {
         return { error: err };
     }
 }
 
-module
+// Execute code with input using stdin
+function executeJavaCodeWithInput(className, inputData) {
+    return new Promise((resolve, reject) => {
+        const process = exec(`java ${className}`, (error, stdout, stderr) => {
+            if (error) {
+                reject(stderr || error.message);
+            } else {
+                resolve(stdout);
+            }
+        });
+
+        // Write input to process stdin
+        if (inputData) {
+            process.stdin.write(inputData);
+        }
+        process.stdin.end();
+    });
+}
+
+module.exports = { runJavaCode };
