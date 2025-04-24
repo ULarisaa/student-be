@@ -1,124 +1,86 @@
 const express = require("express");
 const cors = require("cors");
-const WebSocket = require("ws");
-const { exec } = require("child_process");
-const fs = require("fs");
+const { runJavaCode } = require("./functions/java");
 const userRoutes = require("./routes/userRoutes");
 const coursesRoutes = require("./routes/coursesRoutes");
 const testsRoutes = require("./routes/testsRoutes");
 const enrollmentRoutes = require("./routes/enrollmentRoutes");
+const pool = require("./config/db"); // your pg Pool
 
 const app = express();
 const port = 5000;
 
-// Enable CORS
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.json());
 
-// Use user routes for authentication
 app.use("/user", userRoutes);
 app.use("/course", coursesRoutes);
 app.use("/test", testsRoutes);
 app.use("/enroll", enrollmentRoutes);
 
-// Create a WebSocket server
-const wss = new WebSocket.Server({ noServer: true });
+// Endpoint to run Java code
+app.post("/run-java", async (req, res) => {
+  const { code, testId, caseIndex } = req.body;
 
-wss.on("connection", (ws) => {
-  console.log("New WebSocket connection");
+  // Ensure code, testId, and caseIndex are provided
+  if (!code || !testId || caseIndex === undefined) {
+    return res.status(400).json({ error: "code, testId, and caseIndex are required" });
+  }
 
-  let currentProcess = null;
-
-  ws.on("message", (message) => {
-    try {
-      const { code, input, index } = JSON.parse(message);  // Include index to handle different responses
-
-      console.log("Received code:", code);
-      console.log("Received input:", input);
-
-      // Extract the class name from the Java code (assumes it's the first public class)
-      const classNameMatch = code.match(/public class (\w+)/);
-      if (!classNameMatch) {
-        ws.send(JSON.stringify({ error: "No public class found in the Java code." }));
-        return;
-      }
-      const className = classNameMatch[1];
-
-      // Create the correct file name based on the class name
-      const fileName = `./${className}.java`;
-      fs.writeFileSync(fileName, code);
-
-      // Compile the Java code
-      exec(`javac ${fileName}`, (err, stdout, stderr) => {
-        if (err) {
-          console.error("Error compiling Java code:", stderr); // Log compilation error
-          ws.send(JSON.stringify({ error: stderr }));
-          return;
-        }
-
-        console.log("Java code compiled successfully.");
-
-        // Run the Java program
-        currentProcess = exec(`java ${className}`, (err, stdout, stderr) => {
-          if (err) {
-            console.error("Error running Java code:", stderr); // Log runtime error
-            ws.send(JSON.stringify({ error: stderr }));
-            return;
-          }
-
-          console.log("Java code output:", stdout);
-
-          // Send the output to the client
-          ws.send(JSON.stringify({ output: stdout, index }));
-        });
-
-        // Send input to the Java process if it's provided
-        if (input) {
-          console.log("Sending input to Java program:", input);
-          currentProcess.stdin.write(input + "\n"); // Send the input to the program
-        }
-      });
-    } catch (error) {
-      console.error("Error handling WebSocket message:", error);
-      ws.send(JSON.stringify({ error: "Internal server error" }));
+  try {
+    // Fetch the correct sample input based on testId and caseIndex
+    const sampleInput = await getSampleInputFromDB(testId, caseIndex);
+    if (sampleInput === null) {
+      return res.status(400).json({ error: "No sample input found for this testId and caseIndex" });
     }
-  });
 
-  ws.on("close", () => {
-    console.log("WebSocket connection closed");
-    if (currentProcess) {
-      currentProcess.kill(); // Ensure to kill any remaining processes
+    // Run the Java code with the sample input
+    const result = await runJavaCode(code, sampleInput);
+    if (result.error) {
+      return res.status(500).json({ error: result.error });
     }
-  });
+
+    // Send the output back to the client
+    res.json({ output: result.output });
+  } catch (err) {
+    console.error("run-java error:", err);
+    res.status(500).json({ error: "internal server error" });
+  }
 });
 
-// Upgrade HTTP request to WebSocket connection
-app.server = app.listen(port, () => {
+// Function to fetch sample input from database
+async function getSampleInputFromDB(testId, caseIndex) {
+  console.log("Fetching sample input for testId:", testId, "and caseIndex:", caseIndex); // Log the testId and caseIndex being fetched
+
+  const sql = `
+    SELECT sample_input
+      FROM public.test_questions
+     WHERE test_id = $1
+  `;
+
+  try {
+    // Execute the query to fetch sample_input
+    const { rows } = await pool.query(sql, [testId]);
+
+    // Log the raw rows data returned by the query
+    console.log("Query result rows:", rows);
+
+    // Check if the sample_input exists and if caseIndex is within bounds
+    if (!rows.length || !rows[0].sample_input || caseIndex >= rows[0].sample_input.length || caseIndex < 0) {
+      console.log("No valid sample input found for testId:", testId, "or caseIndex:", caseIndex);
+      return null;
+    }
+
+    // Log and return the specific sample input for the requested caseIndex
+    console.log("Sample input found:", rows[0].sample_input[caseIndex]);
+    return rows[0].sample_input[caseIndex];
+  } catch (err) {
+    // Catch and log any database errors
+    console.error("Error querying database for sample input:", err);
+    throw err; // Rethrow the error for higher-level handling
+  }
+}
+
+app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
-
-// Handle WebSocket upgrade
-app.server.on("upgrade", (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit("connection", ws, request);
-  });
-});
-
-// POST /run-java (Java code execution route)
-app.post("/run-java", async (req, res) => {
-  const { code, input } = req.body;
-
-  if (!code) {
-    return res.status(400).json({ error: "No code provided" });
-  }
-
-  const result = await runJavaCode(code, input || "");
-
-  if (result.error) {
-    return res.status(500).json({ error: result.error });
-  }
-
-  res.json({ output: result.output });
-});
-
-module.exports = app;

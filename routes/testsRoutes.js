@@ -32,6 +32,7 @@ router.get("/:testId", async (req, res) => {
 router.post("/:courseId/create", async (req, res) => {
   const { courseId } = req.params;
   const { name, startTime, duration, questions } = req.body;
+  console.log(questions);
 
   // Validate input data
   if (!name || !startTime || !duration || !questions || questions.length === 0) {

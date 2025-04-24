@@ -53,28 +53,40 @@ async function createTest(courseId, name, startTime, duration) {
     throw error;
   }
 }
-// Example of how to create the question with 'category' and 'task'
 async function createQuestion(testId, question) {
-  const { type, question: task, expectedOutput, options, correctAnswers } = question;
+  const { type, question: task, options, correctAnswers, testCases } = question;
 
-  // Manually define category or fetch from somewhere
-  const category = "coding";  // You could set a default or derive this dynamically
+  const category = "coding";  // Customize this if needed
 
-  // Log to verify data
-  console.log("Creating question with data:", { category, task, expectedOutput, options, correctAnswers });
+  // Extract sampleInput and expectedOutput from the testCases array
+  const sampleInput = testCases.map(testCase => testCase.input);
+  const expectedOutput = testCases.map(testCase => testCase.output);
+
+  // Ensure the correctAnswers are boolean values and map them correctly
+  const correctAnswersMapped = correctAnswers.map(answer => answer === true);
+
+  console.log("Creating question with data:", {
+    category,
+    task,
+    expectedOutput,
+    sampleInput,
+    options,
+    correctAnswersMapped
+  });
 
   const query = `
-    INSERT INTO public.test_questions (test_id, category, task, expected_output, options, correct_answers)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO public.test_questions (test_id, category, task, expected_output, sample_input, options, correct_answers)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
   `;
 
   const values = [
     testId,
     category,
     task,
-    expectedOutput,
-    options,
-    correctAnswers
+    expectedOutput,  // Array of expected outputs from testCases
+    sampleInput,     // Array of inputs from testCases
+    options,         // Directly use options
+    correctAnswersMapped // Array of boolean values (correctAnswers)
   ];
 
   try {
@@ -85,7 +97,6 @@ async function createQuestion(testId, question) {
     throw error;
   }
 }
-
 
 
 module.exports = {
