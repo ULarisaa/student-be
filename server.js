@@ -18,20 +18,19 @@ app.use("/course", coursesRoutes);
 app.use("/test", testsRoutes);
 app.use("/enroll", enrollmentRoutes);
 
-// Endpoint to run Java code
 app.post("/run-java", async (req, res) => {
-  const { code, testId, caseIndex } = req.body;
+  const { code, testId, caseIndex, qIdx } = req.body;
 
-  // Ensure code, testId, and caseIndex are provided
-  if (!code || !testId || caseIndex === undefined) {
-    return res.status(400).json({ error: "code, testId, and caseIndex are required" });
+  // Ensure code, testId, caseIndex, and qIdx are provided
+  if (!code || !testId || caseIndex === undefined || qIdx === undefined) {
+    return res.status(400).json({ error: "code, testId, caseIndex, and qIdx are required" });
   }
 
   try {
-    // Fetch the correct sample input based on testId and caseIndex
-    const sampleInput = await getSampleInputFromDB(testId, caseIndex);
+    // Fetch the correct sample input based on testId, qIdx, and caseIndex
+    const sampleInput = await getSampleInputFromDB(testId, qIdx, caseIndex);
     if (sampleInput === null) {
-      return res.status(400).json({ error: "No sample input found for this testId and caseIndex" });
+      return res.status(400).json({ error: "No sample input found for this testId, qIdx, and caseIndex" });
     }
 
     // Run the Java code with the sample input
@@ -48,26 +47,26 @@ app.post("/run-java", async (req, res) => {
   }
 });
 
-// Function to fetch sample input from database
-async function getSampleInputFromDB(testId, caseIndex) {
-  console.log("Fetching sample input for testId:", testId, "and caseIndex:", caseIndex); // Log the testId and caseIndex being fetched
+// Function to fetch sample input from the database based on testId, qIdx, and caseIndex
+async function getSampleInputFromDB(testId, qIdx, caseIndex) {
+  console.log("Fetching sample input for testId:", testId, "qIdx:", qIdx, "and caseIndex:", caseIndex);
 
   const sql = `
     SELECT sample_input
       FROM public.test_questions
-     WHERE test_id = $1
+     WHERE test_id = $1 AND id = $2
   `;
 
   try {
-    // Execute the query to fetch sample_input
-    const { rows } = await pool.query(sql, [testId]);
+    // Execute the query to fetch sample_input for the given question in the test
+    const { rows } = await pool.query(sql, [testId, qIdx]);
 
     // Log the raw rows data returned by the query
     console.log("Query result rows:", rows);
 
     // Check if the sample_input exists and if caseIndex is within bounds
     if (!rows.length || !rows[0].sample_input || caseIndex >= rows[0].sample_input.length || caseIndex < 0) {
-      console.log("No valid sample input found for testId:", testId, "or caseIndex:", caseIndex);
+      console.log("No valid sample input found for testId:", testId, "qIdx:", qIdx, "or caseIndex:", caseIndex);
       return null;
     }
 
@@ -75,9 +74,8 @@ async function getSampleInputFromDB(testId, caseIndex) {
     console.log("Sample input found:", rows[0].sample_input[caseIndex]);
     return rows[0].sample_input[caseIndex];
   } catch (err) {
-    // Catch and log any database errors
     console.error("Error querying database for sample input:", err);
-    throw err; // Rethrow the error for higher-level handling
+    throw err;
   }
 }
 

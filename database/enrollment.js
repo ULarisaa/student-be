@@ -164,6 +164,35 @@ const getApprovedEnrollmentsForStudent = async (studentId) => {
     throw error; // Rethrow the error to be handled by the calling function
   }
 };
+async function getCoursesWithStatus(studentId) {
+  const query = `
+    SELECT 
+      c.id AS course_id,
+      c.name AS course_name,
+      c.description AS course_description,
+      c.semester,
+      c.is_active,
+      e.status,
+      u.first_name AS teacher_first_name,
+      u.last_name AS teacher_last_name
+    FROM public.courses c
+    JOIN public."user" u ON c.teacher_id = u.id
+    LEFT JOIN public.enrollments e 
+      ON c.id = e.course_id AND e.student_id = $1
+    ORDER BY c.name ASC
+  `;
+  const values = [studentId];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching courses with enrollment status:", error);
+    throw error;
+  }
+}
+
+
 
 module.exports = {
   getEnrollment,
@@ -173,5 +202,6 @@ module.exports = {
   getPendingEnrollments,
   getPendingEnrollmentsByCourse,
   getCourseById,
-  getApprovedEnrollmentsForStudent
+  getApprovedEnrollmentsForStudent, 
+  getCoursesWithStatus
 };

@@ -29,8 +29,13 @@ async function getTestById(testId) {
 
     // Fetch questions related to the test
     const questionsQuery = 'SELECT * FROM public.test_questions WHERE test_id = $1';
-    const questionsResult = await pool.query(questionsQuery, [testId]);
-    const questions = questionsResult.rows;
+const questionsResult = await pool.query(questionsQuery, [testId]);
+const questions = questionsResult.rows.map((q) => ({
+  ...q,
+  sample_input: Array.isArray(q.sample_input) ? q.sample_input : [],
+  expected_output: Array.isArray(q.expected_output) ? q.expected_output : [],
+}));
+
 
     return { test, questions };
   } catch (error) {

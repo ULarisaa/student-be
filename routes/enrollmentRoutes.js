@@ -96,4 +96,24 @@ router.get("/approved", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Get all enrollments (any status) for the logged-in student, including status
+router.get("/status", authenticateToken, async (req, res) => {
+  const studentId = req.user.id;
+
+  try {
+    const enrollments = await enrollmentQueries.getCoursesWithStatus(studentId);
+
+    if (enrollments.length === 0) {
+      return res.status(404).json({ message: "No enrollment requests found" });
+    }
+
+    res.json(enrollments);
+  } catch (error) {
+    console.error("Error fetching enrollments with status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
 module.exports = router;
