@@ -192,6 +192,27 @@ async function getCoursesWithStatus(studentId) {
   }
 }
 
+// Get all approved enrolled students for a course
+async function getApprovedEnrolledStudents(courseId) {
+  const query = `
+    SELECT 
+      u.id, u.first_name, u.last_name, u.email, u.role, u.created_at, u.updated_at
+    FROM public.enrollments e
+    JOIN public."user" u ON e.student_id = u.id
+    WHERE e.course_id = $1 AND e.status = 'approved'
+  `;
+  const values = [courseId];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching approved enrolled students:", error);
+    throw error;
+  }
+}
+
+
 
 
 module.exports = {
@@ -203,5 +224,6 @@ module.exports = {
   getPendingEnrollmentsByCourse,
   getCourseById,
   getApprovedEnrollmentsForStudent, 
-  getCoursesWithStatus
+  getCoursesWithStatus, 
+  getApprovedEnrolledStudents
 };

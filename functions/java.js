@@ -1,70 +1,60 @@
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
-// Extract the public class name from the code
+// Extras numele clasei publice, fallback la "Main"
 function extractClassName(code) {
   const match = code.match(/public\s+class\s+([A-Za-z_][A-Za-z0-9_]*)/);
-  return match ? match[1] : "Main"; // Fallback to Main if no match found
+  return match ? match[1] : "Main";
 }
 
-// Write Java code to file
-function writeJavaCodeToFile(code, filename) {
-  try {
-    fs.writeFileSync(filename, code);
-    return null;  // No error
-  } catch (err) {
-    return 'Error writing code to file: ' + err.message;
-  }
-}
-
-// Compile Java code
-function compileJavaCode(filename) {
-  const command = `javac ${filename}`;
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (stderr) {
-        reject(`Compiler Error: ${stderr}`);
-      } else {
-        resolve(stdout);
-      }
-    });
-  });
-}
-
-// Run Java code with input
-function executeJavaCodeWithInput(className, inputData) {
-  return new Promise((resolve, reject) => {
-    const process = exec(`java ${className}`, (error, stdout, stderr) => {
-      if (error) {
-        reject(stderr || error.message);
-      } else {
-        resolve(stdout);
-      }
-    });
-
-    // Write input to process stdin
-    if (inputData) {
-      process.stdin.write(inputData);
-    }
-    process.stdin.end();
-  });
-}
-
-// Run Java code
 async function runJavaCode(code, inputData = "") {
   const className = extractClassName(code);
-  const filename = `${className}.java`;
-
-  const writeError = writeJavaCodeToFile(code, filename);
-  if (writeError) return { error: writeError };
+  const id = uuidv4(); // generăm un ID unic pentru fiecare rulare
+  const tempDir = path.join(__dirname, "tmp", id);
+  const javaFile = path.join(tempDir, `${className}.java`);
 
   try {
-    await compileJavaCode(filename);
-    const output = await executeJavaCodeWithInput(className, inputData);
+    // Creează folderul temporar
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    // Scrie codul în fișierul Java
+    fs.writeFileSync(javaFile, code);
+
+    // Compilează codul
+    await new Promise((resolve, reject) => {
+      exec(`javac ${className}.java`, { cwd: tempDir, timeout: 5000 }, (err, stdout, stderr) => {
+        if (err || stderr) return reject(stderr || err.message);
+        resolve(stdout);
+      });
+    });
+
+    // Rulează codul cu input de la utilizator
+    const output = await new Promise((resolve, reject) => {
+     const process = exec(`java ${className}`, { cwd: tempDir, timeout: 5000 }, (err, stdout, stderr) => {
+        if (err || stderr) return reject(stderr || err.message);
+        resolve(stdout);
+      });
+
+      // Trimite input prin stdin
+      if (inputData) {
+        process.stdin.write(inputData);
+      }
+      process.stdin.end();
+    });
+
+    // Șterge folderul temporar și fișierele
+    fs.rmSync(tempDir, { recursive: true, force: true });
+
     return { output };
   } catch (err) {
-    return { error: err };
+    // Dacă apare o eroare, tot ștergem folderul
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (_) {}
+
+    return { error: err.toString() };
   }
 }
 

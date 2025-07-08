@@ -1,4 +1,4 @@
-const pool = require('./../config/db'); // Assume you're using pg-pool for PostgreSQL connection
+const db = require('./../config/db'); // Assume you're using pg-db for PostgreSQL connection
 const bcrypt = require('bcrypt');
 
 async function getUserByEmail(email) {
@@ -6,7 +6,7 @@ async function getUserByEmail(email) {
     const values = [email];
   
     try {
-      const result = await pool.query(query, values);
+      const result = await db.query(query, values);
       if (result.rows.length > 0) {
         return result.rows[0]; // Return the first matching user
       }
@@ -41,16 +41,49 @@ async function hashPassword(password) {
     const values = [firstName, lastName, email, hashedPassword, role];
   
     try {
-      await pool.query(query, values);
+      await db.query(query, values);
       console.log(`User created with email: ${email}`);
     } catch (error) {
       console.error('Error creating user:', error);
       throw error; // Rethrow error for handling in route
     }
   }
+async function updateUserPassword(email, hashedPassword) {
+  const query = 'UPDATE public."user" SET password = $1 WHERE email = $2';
+  const values = [hashedPassword, email];
+
+  try {
+    await db.query(query, values);
+    console.log(`Password updated for user: ${email}`);
+  } catch (error) {
+    console.error('Error updating user password:', error);
+    throw error;
+  }
+}
+
+async function sendResetPasswordEmail(toEmail, resetLink) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: toEmail,
+    subject: "Resetare parolă - YourAppName",
+    html: `
+      <p>Bună,</p>
+      <p>Ai cerut resetarea parolei. Apasă pe link-ul de mai jos pentru a-ți seta o parolă nouă:</p>
+      <a href="${resetLink}">Resetează parola</a>
+      <p>Dacă nu ai cerut acest lucru, ignoră acest email.</p>
+    `,
+  };
+
+  return transporter.sendMail(mailOptions);
+}
+
 
 module.exports = {
   getUserByEmail,
   validatePassword,
-  createUser,  // Export the createUser function
+  createUser,
+  updateUserPassword, 
+  hashPassword,
+  sendResetPasswordEmail
 };
+

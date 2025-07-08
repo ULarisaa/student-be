@@ -1,83 +1,92 @@
 const express = require("express");
 const cors = require("cors");
-const { runJavaCode } = require("./functions/java");
+require('dotenv').config();
+const { sendEmail } = require('./functions/emailService');
+const authenticateToken = require('./functions/authTokens');
+const { runJavaCode } = require("./functions/javaDocker");
 const userRoutes = require("./routes/userRoutes");
 const coursesRoutes = require("./routes/coursesRoutes");
 const testsRoutes = require("./routes/testsRoutes");
 const enrollmentRoutes = require("./routes/enrollmentRoutes");
+const assignmentRoutes = require("./routes/assignments");
+const testSubmissionsRoutes = require("./routes/testSubmissionsRoutes");
+const cookieParser = require('cookie-parser');
+
+
+
 const pool = require("./config/db"); // your pg Pool
 
 const app = express();
 const port = 5000;
 
-app.use(cors());
+const corsOptions = {
+  origin: "http://localhost:3000",
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
+
 
 app.use("/user", userRoutes);
 app.use("/course", coursesRoutes);
 app.use("/test", testsRoutes);
 app.use("/enroll", enrollmentRoutes);
+app.use("/assignments", assignmentRoutes);
+app.use("/testSubmissions", testSubmissionsRoutes);
+
+// app.post("/run-java", async (req, res) => {
+//   const { code, testId, caseIndex, qIdx } = req.body;
+
+//   // Ensure code, testId, caseIndex, and qIdx are provided
+//   if (!code || !testId || caseIndex === undefined || qIdx === undefined) {
+//     return res.status(400).json({ error: "code, testId, caseIndex, and qIdx are required" });
+//   }
+
+//   try {
+//     // Fetch the correct sample input based on testId, qIdx, and caseIndex
+//     const sampleInput = await getSampleInputFromDB(testId, qIdx, caseIndex);
+//     if (sampleInput === null) {
+//       return res.status(400).json({ error: "No sample input found for this testId, qIdx, and caseIndex" });
+//     }
+
+//     // Run the Java code with the sample input
+//     const result = await runJavaCode(code, sampleInput);
+//     if (result.error) {
+//       return res.status(500).json({ error: result.error });
+//     }
+
+//     // Send the output back to the client
+//     res.json({ output: result.output });
+//   } catch (err) {
+//     console.error("run-java error:", err);
+//     res.status(500).json({ error: "internal server error" });
+//   }
+// });
 
 app.post("/run-java", async (req, res) => {
-  const { code, testId, caseIndex, qIdx } = req.body;
+  const { code, input } = req.body;
 
-  // Ensure code, testId, caseIndex, and qIdx are provided
-  if (!code || !testId || caseIndex === undefined || qIdx === undefined) {
-    return res.status(400).json({ error: "code, testId, caseIndex, and qIdx are required" });
+  if (!code) {
+    return res.status(400).json({ error: "Code is required" });
   }
 
   try {
-    // Fetch the correct sample input based on testId, qIdx, and caseIndex
-    const sampleInput = await getSampleInputFromDB(testId, qIdx, caseIndex);
-    if (sampleInput === null) {
-      return res.status(400).json({ error: "No sample input found for this testId, qIdx, and caseIndex" });
-    }
-
-    // Run the Java code with the sample input
-    const result = await runJavaCode(code, sampleInput);
+    const result = await runJavaCode(code, input || "");
+    // result already has shape { output: "...", error: "..." }
     if (result.error) {
-      return res.status(500).json({ error: result.error });
+      return res.status(400).json({ error: result.error });
     }
-
-    // Send the output back to the client
-    res.json({ output: result.output });
+    console.log(result);
+    res.json({ output: result });
   } catch (err) {
     console.error("run-java error:", err);
-    res.status(500).json({ error: "internal server error" });
+    res.status(500).json({ error: err.toString() });
   }
 });
 
-// Function to fetch sample input from the database based on testId, qIdx, and caseIndex
-async function getSampleInputFromDB(testId, qIdx, caseIndex) {
-  console.log("Fetching sample input for testId:", testId, "qIdx:", qIdx, "and caseIndex:", caseIndex);
 
-  const sql = `
-    SELECT sample_input
-      FROM public.test_questions
-     WHERE test_id = $1 AND id = $2
-  `;
-
-  try {
-    // Execute the query to fetch sample_input for the given question in the test
-    const { rows } = await pool.query(sql, [testId, qIdx]);
-
-    // Log the raw rows data returned by the query
-    console.log("Query result rows:", rows);
-
-    // Check if the sample_input exists and if caseIndex is within bounds
-    if (!rows.length || !rows[0].sample_input || caseIndex >= rows[0].sample_input.length || caseIndex < 0) {
-      console.log("No valid sample input found for testId:", testId, "qIdx:", qIdx, "or caseIndex:", caseIndex);
-      return null;
-    }
-
-    // Log and return the specific sample input for the requested caseIndex
-    console.log("Sample input found:", rows[0].sample_input[caseIndex]);
-    return rows[0].sample_input[caseIndex];
-  } catch (err) {
-    console.error("Error querying database for sample input:", err);
-    throw err;
-  }
-}
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

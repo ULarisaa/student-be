@@ -1,31 +1,18 @@
 const express = require("express");
 const courseQueries = require("../database/courses");
+const assignmentQueries = require("../database/assignments");
+const testQueries = require("../database/tests");
+const enrollmentQueries= require("../database/enrollment");
 const authenticateToken = require('../functions/authTokens'); // Middleware to authenticate the token
 const router = express.Router();
-// Get all available courses (active or open for enrollment)
-router.get("/available", async (req, res) => {
-  try {
-    // Fetching all courses that are active or open for enrollment (assuming you want courses that are 'active')
-    const courses = await courseQueries.getAvailableCourses(); 
-    console.log(courses);  // Log the courses to the console for debugging
-    res.json(courses);  // Return the available courses as JSON response
-  } catch (error) {
-    console.error("Error fetching available courses:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 
-// Get all courses that are NOT available (inactive or not open for enrollment)
-router.get("/all", authenticateToken, async (req, res) => {
-  try {
-    // Assuming getNotAvailableCourses() will return courses that are inactive or not open for enrollment
-    const courses = await courseQueries.getNotAvailableCourses(); 
-    res.json(courses);
-  } catch (error) {
-    console.error("Error fetching non-available courses:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+const multer = require("multer");
+
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
+
 
 // Get all courses for the logged-in teacher (existing route)
 router.get("/", authenticateToken, async (req, res) => {
@@ -84,19 +71,259 @@ router.put("/:courseId", authenticateToken, async (req, res) => {
   }
 });
 
-// Delete a course
-router.delete("/:courseId", authenticateToken, async (req, res) => {
+
+router.get("/:courseId/full", authenticateToken, async (req, res) => {
   const { courseId } = req.params;
+
   try {
-    const deletedCourse = await courseQueries.deleteCourse(courseId);
-    if (!deletedCourse) {
+    const course = await courseQueries.getCourseById(courseId);
+    if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
-    res.json({ message: "Course deleted successfully" });
+
+    // Fetch all related data concurrently + count posts and materials
+    const [assignments, tests, enrolledStudents, postsCount, materialsCount] = await Promise.all([
+      assignmentQueries.getAssignmentsByCourse(courseId),
+      testQueries.getTestsByCourse(courseId),
+      enrollmentQueries.getApprovedEnrolledStudents(courseId),
+      courseQueries.getPostsCountByCourse(courseId),
+      courseQueries.getMaterialsCountByCourse(courseId)
+    ]);
+
+    res.json({
+      course,
+      assignments,
+      tests,
+      enrolledStudents,
+      postsCount,
+      materialsCount,
+    });
   } catch (error) {
-    console.error("Error deleting course:", error);
+    console.error("Error fetching full course data:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.get("/:courseId/students-with-submissions", authenticateToken, async (req, res) => {
+  const { courseId } = req.params;
+
+  try {
+    const studentsWithSubmissions = await courseQueries.getApprovedEnrolledStudentsWithSubmissions(courseId);
+
+    res.json({ students: studentsWithSubmissions });
+  } catch (error) {
+    console.error("Error fetching students with submissions:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/:courseId/students-with-test-submissions", authenticateToken, async (req, res) => {
+  const { courseId } = req.params;
+
+  try {
+    const studentsWithTestSubmissions =
+      await courseQueries.getApprovedEnrolledStudentsWithTestSubmissions(courseId);
+
+    res.json({ students: studentsWithTestSubmissions });
+  } catch (error) {
+    console.error("Error fetching students with test submissions:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router.get("/:courseId/submissions/status", authenticateToken, async (req, res) => {
+  const { courseId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const statuses = await courseQueries.getUserSubmissionsStatus(courseId, userId);
+    res.json(statuses);
+  } catch (error) {
+    console.error("Error fetching submissions status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router.post(
+  '/:courseId/upload-materials',
+  authenticateToken,
+  upload.array('materials'),
+  async (req, res) => {
+    const courseId = req.params.courseId;
+    const userId = req.user.id;
+    const title = req.body.title;
+
+    if (!title || !req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+      const uploadedIds = [];
+
+      for (const file of req.files) {
+        const materialId = await courseQueries.createMaterial(
+  courseId,
+  title,
+  file.originalname,
+  file.size,
+  file.buffer,
+  userId,          
+  file.mimetype     
+);
+
+        uploadedIds.push(materialId);
+      }
+
+      res.status(201).json({ message: 'Materials uploaded', ids: uploadedIds });
+    } catch (error) {
+      console.error('Error uploading material:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+
+router.get("/:courseId/materials", authenticateToken, async (req, res) => {
+  const { courseId } = req.params;
+  try {
+    const materials = await courseQueries.getMaterialsByCourse(courseId);
+    res.json(materials);
+  } catch (error) {
+    console.error("Error fetching materials:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/materials/:materialId", authenticateToken, async (req, res) => {
+  const { materialId } = req.params;
+  try {
+    const deleted = await courseQueries.deleteMaterial(materialId);
+    if (!deleted) {
+      return res.status(404).json({ error: "Material not found" });
+    }
+    res.json({ message: "Material deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting material:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+router.get('/materials/:id/download', authenticateToken, async (req, res) => {
+  const materialId = req.params.id;
+
+  try {
+    const material = await courseQueries.getMaterialById(materialId); // schimbat aici
+
+    if (!material) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    res.setHeader('Content-Type', material.mime_type || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(material.file_name)}"`
+    );
+    res.send(material.file_data);
+  } catch (error) {
+    console.error('Error fetching course material:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/posts', authenticateToken, async (req, res) => {
+  const { course_id, title, content, allow_comments } = req.body;
+  const user_id = req.user.id;
+
+  try {
+    const post = await courseQueries.createPost(course_id, user_id, title, content, allow_comments);
+    res.status(201).json(post);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obține toate postările unui curs
+router.get('/:courseId/posts', authenticateToken, async (req, res) => {
+  try {
+    const posts = await courseQueries.getPostsByCourse(req.params.courseId);
+
+    // Pentru fiecare postare, atașăm comentariile
+    const postsWithComments = await Promise.all(
+      posts.map(async (post) => {
+        const comments = await courseQueries.getCommentsByPost(post.id);
+        return {
+          ...post,
+          comments, // adăugăm comentariile aici
+        };
+      })
+    );
+
+    res.json(postsWithComments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// Obține o postare + comentarii dacă sunt permise
+router.get('/posts/:postId', authenticateToken, async (req, res) => {
+  try {
+    const post = await courseQueries.getPostById(req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    let comments = [];
+    if (post.allow_comments) {
+      comments = await getCommentsByPost(req.params.postId);
+    }
+    res.json({ post, comments });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/posts/comment', authenticateToken, async (req, res) => {
+  const { post_id, comment_text } = req.body;
+  const user_id = req.user.id;
+
+  if (!post_id || !comment_text?.trim()) {
+    return res.status(400).json({ error: "post_id and comment_text are required." });
+  }
+
+  try {
+    const allow = await courseQueries.checkAllowComments(post_id);
+    if (!allow) {
+      return res.status(403).json({ error: "Comments are disabled for this post." });
+    }
+
+    const newComment = await courseQueries.createComment(post_id, user_id, comment_text.trim());
+    const authorName = await courseQueries.getUserFullNameById(user_id);
+
+  const commentWithAuthor = {
+  ...newComment,
+  full_name: authorName || "Anonymous", 
+};
+
+    res.status(201).json(commentWithAuthor);
+  } catch (err) {
+    console.error("Error adding comment:", err);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// routes/submissions.ts
+router.get('/:courseId/students-with-grades', authenticateToken, async (req, res) => {
+  const { courseId } = req.params;
+
+  try {
+    const data = await courseQueries.getStudentsWithGrades(courseId);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching students with grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
 
 module.exports = router;
