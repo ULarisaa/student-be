@@ -14,7 +14,6 @@ async function getTestsByCourse(courseId) {
 }
 
 
-// Function to get a test by ID along with its questions
 async function getTestById(testId) {
   const testQuery = 'SELECT * FROM public.tests WHERE id = $1';
   const testValues = [testId];
@@ -27,7 +26,7 @@ async function getTestById(testId) {
       throw new Error('Test not found');
     }
 
-    // Fetch questions related to the test
+
     const questionsQuery = 'SELECT * FROM public.test_questions WHERE test_id = $1';
 const questionsResult = await db.query(questionsQuery, [testId]);
 const questions = questionsResult.rows.map((q) => ({
@@ -51,7 +50,7 @@ async function createTest(courseId, name, startTime, endTime, duration, allowSwi
     RETURNING id
   `;
 
-  // Transformă durata din număr în interval string
+
   const durationInterval = `${duration} minutes`;
 
   const values = [courseId, name, startTime, endTime, durationInterval, allowSwitch, startGrade];
@@ -79,10 +78,10 @@ async function createQuestion(testId, question) {
   const sampleInput = type === "coding" ? testCases.map(tc => tc.input) : null;
   const expectedOutput = type === "coding" ? testCases.map(tc => tc.output) : null;
 
-  // Dacă e multiple_choice sau true_false, corectAnswers trebuie să fie array de booleani
+
   const correctAnswersMapped =
     (type === "multiple_choice" || type === "true_false")
-      ? correctAnswers.map(a => !!a) // forțează boolean
+      ? correctAnswers.map(a => !!a) 
       : correctAnswers;
 
   const query = `
@@ -126,7 +125,7 @@ async function getQuestionById(questionId) {
 
     const question = result.rows[0];
     
-    // sample_input și expected_output sunt deja array-uri (probabil stocate ca array în PostgreSQL)
+
     question.sample_input = Array.isArray(question.sample_input) ? question.sample_input : [];
     question.expected_output = Array.isArray(question.expected_output) ? question.expected_output : [];
 
@@ -154,7 +153,7 @@ async function getQuestionsByTestId(testId) {
       ...q,
       sample_input: Array.isArray(q.sample_input) ? q.sample_input : [],
       expected_output: Array.isArray(q.expected_output) ? q.expected_output : [],
-      // Adaugă și parsarea corect_answers dacă e string JSON, dacă vrei
+
     }));
   } catch (error) {
     console.error("Error fetching questions by testId:", error);
@@ -167,7 +166,7 @@ async function getSubmissionByTestAndUser(testId, userId) {
     'SELECT * FROM test_submissions WHERE test_id = $1 AND user_id = $2',
     [testId, userId]
   );
-  return res.rows[0] || null; // first row or null if none found
+  return res.rows[0] || null; 
 }
 
 async function getAnswersBySubmissionId(submissionId) {
@@ -175,7 +174,7 @@ async function getAnswersBySubmissionId(submissionId) {
     'SELECT * FROM test_submissions_answers WHERE test_submission_id = $1',
     [submissionId]
   );
-  return res.rows;  // pg returnează datele în rows
+  return res.rows;  
 }
 
 async function updateExpectedGradeForAnswer(answerId, expectedGrade) {

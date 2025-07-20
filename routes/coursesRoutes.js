@@ -3,7 +3,7 @@ const courseQueries = require("../database/courses");
 const assignmentQueries = require("../database/assignments");
 const testQueries = require("../database/tests");
 const enrollmentQueries= require("../database/enrollment");
-const authenticateToken = require('../functions/authTokens'); // Middleware to authenticate the token
+const authenticateToken = require('../functions/authTokens'); 
 const router = express.Router();
 
 const multer = require("multer");
@@ -14,9 +14,9 @@ const upload = multer({ storage: storage });
 
 
 
-// Get all courses for the logged-in teacher (existing route)
+
 router.get("/", authenticateToken, async (req, res) => {
-  const teacherId = req.user.id; // Teacher ID from the JWT token
+  const teacherId = req.user.id; 
   try {
     const courses = await courseQueries.getCoursesByTeacher(teacherId);
     res.json(courses);
@@ -26,7 +26,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Get a specific course by its ID
+
 router.get("/:courseId", authenticateToken, async (req, res) => {
   const { courseId } = req.params;
   try {
@@ -42,9 +42,9 @@ router.get("/:courseId", authenticateToken, async (req, res) => {
 });
 
 router.post("/", authenticateToken, async (req, res) => {
-  const { name, description, semester, isActive } = req.body;  // Make sure isActive is here
-  const teacherId = req.user.id; // Teacher ID from the JWT token
-  console.log("Received data:", { name, description, semester, isActive });  // Log the received data
+  const { name, description, semester, isActive } = req.body;  
+  const teacherId = req.user.id; 
+  console.log("Received data:", { name, description, semester, isActive });  
   try {
     const courseId = await courseQueries.createCourse(teacherId, name, description, semester, isActive);
     res.status(201).json({ id: courseId });
@@ -55,21 +55,6 @@ router.post("/", authenticateToken, async (req, res) => {
 });
 
 
-// Update a course
-router.put("/:courseId", authenticateToken, async (req, res) => {
-  const { courseId } = req.params;
-  const { name, description, semester, is_active } = req.body;
-  try {
-    const updatedCourse = await courseQueries.updateCourse(courseId, name, description, semester, is_active);
-    if (!updatedCourse) {
-      return res.status(404).json({ error: "Course not found" });
-    }
-    res.json({ message: "Course updated successfully", course: updatedCourse });
-  } catch (error) {
-    console.error("Error updating course:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 
 router.get("/:courseId/full", authenticateToken, async (req, res) => {
@@ -81,7 +66,7 @@ router.get("/:courseId/full", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    // Fetch all related data concurrently + count posts and materials
+ 
     const [assignments, tests, enrolledStudents, postsCount, materialsCount] = await Promise.all([
       assignmentQueries.getAssignmentsByCourse(courseId),
       testQueries.getTestsByCourse(courseId),
@@ -209,7 +194,7 @@ router.get('/materials/:id/download', authenticateToken, async (req, res) => {
   const materialId = req.params.id;
 
   try {
-    const material = await courseQueries.getMaterialById(materialId); // schimbat aici
+    const material = await courseQueries.getMaterialById(materialId); 
 
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
@@ -228,11 +213,12 @@ router.get('/materials/:id/download', authenticateToken, async (req, res) => {
 });
 
 router.post('/posts', authenticateToken, async (req, res) => {
-  const { course_id, title, content, allow_comments } = req.body;
+ const { course_id, title, content, allowComments } = req.body;
+
   const user_id = req.user.id;
 
   try {
-    const post = await courseQueries.createPost(course_id, user_id, title, content, allow_comments);
+    const post = await courseQueries.createPost(course_id, user_id, title, content, allowComments);
     res.status(201).json(post);
   } catch (err) {
     console.error(err);
@@ -240,18 +226,18 @@ router.post('/posts', authenticateToken, async (req, res) => {
   }
 });
 
-// Obține toate postările unui curs
+
 router.get('/:courseId/posts', authenticateToken, async (req, res) => {
   try {
     const posts = await courseQueries.getPostsByCourse(req.params.courseId);
 
-    // Pentru fiecare postare, atașăm comentariile
+ 
     const postsWithComments = await Promise.all(
       posts.map(async (post) => {
         const comments = await courseQueries.getCommentsByPost(post.id);
         return {
           ...post,
-          comments, // adăugăm comentariile aici
+          comments, 
         };
       })
     );
@@ -264,7 +250,6 @@ router.get('/:courseId/posts', authenticateToken, async (req, res) => {
 });
 
 
-// Obține o postare + comentarii dacă sunt permise
 router.get('/posts/:postId', authenticateToken, async (req, res) => {
   try {
     const post = await courseQueries.getPostById(req.params.postId);
@@ -310,7 +295,7 @@ router.post('/posts/comment', authenticateToken, async (req, res) => {
   }
 });
 
-// routes/submissions.ts
+
 router.get('/:courseId/students-with-grades', authenticateToken, async (req, res) => {
   const { courseId } = req.params;
 

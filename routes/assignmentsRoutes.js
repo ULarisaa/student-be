@@ -5,14 +5,14 @@ const authenticateToken = require("../functions/authTokens");
 
 const router = express.Router();
 
-// Set up multer to store files in memory as buffer
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 router.post(
   "/:courseId/create",
   authenticateToken,
-  upload.array("attachments"), // handle multiple attachments
+  upload.array("attachments"), 
   async (req, res) => {
     const { courseId } = req.params;
     const {
@@ -28,9 +28,11 @@ router.post(
     if (!title || !dueDate || !answerType) {
       return res.status(400).json({ error: "Missing required fields." });
     }
+console.log("Received files:", req.files);
+console.log("Body:", req.body);
 
     try {
-      // Convert uploaded files to [{ buffer, mimetype, originalname }] format
+  
       const attachments = req.files?.map((file) => ({
         data: file.buffer,
         mimetype: file.mimetype,
@@ -46,7 +48,7 @@ router.post(
         allowedFileTypes,
         maxFileSize,
         maxFiles,
-        attachments // pass full array of files
+        attachments 
       );
 
       res
@@ -59,7 +61,7 @@ router.post(
   }
 );
 
-// Get all assignments for a course
+
 router.get("/:courseId", authenticateToken, async (req, res) => {
   const { courseId } = req.params;
 
@@ -115,7 +117,7 @@ router.post(
     const assignmentId = req.params.assignmentId;
     const userId = req.user.id;
 
-    // Extrage lista de existingFileIds din form-data
+
     let existingFileIds = [];
     if (req.body.existingFileIds) {
       try {
@@ -126,14 +128,14 @@ router.post(
     }
 
     try {
-      // Șterge fișierele care nu sunt în existingFileIds pentru acest user + assignment
+
       await assignmentQueries.deleteFilesNotInList({
         assignmentId,
         userId,
         keepFileIds: existingFileIds,
       });
 
-      // Salvează noile fișiere uploadate
+
       if (req.files && req.files.length > 0) {
         for (const file of req.files) {
           await assignmentQueries.saveFileSubmission({
@@ -147,7 +149,7 @@ router.post(
         }
       }
 
-      // Returnează lista actualizată de fișiere
+
       const updatedFiles = await assignmentQueries.getUserFiles({ assignmentId, userId });
 
       res.status(201).json({ message: 'Files updated successfully', updatedFiles });
@@ -160,7 +162,7 @@ router.post(
 
 
 
-// Submit text answer for an assignment
+
 router.post(
   '/:assignmentId/submit-text',
   authenticateToken,
@@ -187,7 +189,7 @@ router.post(
     }
   }
 );
-// Get comments for an assignment
+
 router.get('/:assignmentId/comments', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -199,11 +201,11 @@ router.get('/:assignmentId/comments', authenticateToken, async (req, res) => {
   }
 });
 
-// Add a comment
+
 router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
-    const userId = req.user.id;  // assuming authenticateToken sets req.user
+    const userId = req.user.id;  
     const { comment } = req.body;
 console.log(userId);
     if (!comment || comment.trim() === '') {
@@ -247,7 +249,7 @@ router.get(
 );
 router.get(
   '/:assignmentId/submission/:studentId',
-  authenticateToken,  // dacă vrei să ceri autentificare
+  authenticateToken,  
   async (req, res) => {
     const { assignmentId, studentId } = req.params;
 
@@ -268,7 +270,7 @@ router.get(
 router.post('/grade-assignment/:submissionId', authenticateToken, async (req, res) => {
   const { submissionId } = req.params;
   const { grade, feedback } = req.body;
-   console.log('submissionId:', submissionId); // Add this debug line
+   console.log('submissionId:', submissionId); 
 
   try {
     const updatedSubmission = await assignmentQueries.gradeAssignment(submissionId, grade, feedback);

@@ -1,19 +1,19 @@
 const pool = require("../config/db");
 
-// Check if a student is already enrolled in a specific course
+
 async function getEnrollment(studentId, courseId) {
   const query = 'SELECT * FROM public.enrollments WHERE student_id = $1 AND course_id = $2';
   const values = [studentId, courseId];
 
   try {
     const result = await pool.query(query, values);
-    return result.rows[0]; // Return the enrollment if it exists
+    return result.rows[0]; 
   } catch (error) {
     console.error("Error checking enrollment:", error);
     throw error;
   }
 }
-// Get all pending enrollments for a specific teacher and course (if courseId is provided)
+
 async function getPendingEnrollmentsByCourse(teacherId, courseId) {
   const query = `
     SELECT 
@@ -37,14 +37,14 @@ async function getPendingEnrollmentsByCourse(teacherId, courseId) {
 
   try {
     const result = await pool.query(query, values);
-    return result.rows; // Return all pending enrollments for the specific course with user details
+    return result.rows; 
   } catch (error) {
     console.error("Error fetching pending enrollments by course:", error);
     throw error;
   }
 }
 
-// Get all pending enrollments for a specific teacher (all courses)
+
 async function getPendingEnrollments(teacherId) {
   const query = `
     SELECT 
@@ -68,14 +68,14 @@ async function getPendingEnrollments(teacherId) {
 
   try {
     const result = await pool.query(query, values);
-    return result.rows; // Return all pending enrollments for the teacher with user details
+    return result.rows; 
   } catch (error) {
     console.error("Error fetching pending enrollments:", error);
     throw error;
   }
 }
 
-// Create a new enrollment record (status is 'pending' by default)
+
 async function createEnrollment(studentId, courseId) {
   const query = `
     INSERT INTO public.enrollments (student_id, course_id, status)
@@ -92,21 +92,21 @@ async function createEnrollment(studentId, courseId) {
   }
 }
 
-// Get enrollment by ID (useful for teacher to approve/deny)
+
 async function getEnrollmentById(enrollmentId) {
   const query = 'SELECT * FROM public.enrollments WHERE id = $1';
   const values = [enrollmentId];
 
   try {
     const result = await pool.query(query, values);
-    return result.rows[0]; // Return the enrollment if it exists
+    return result.rows[0]; 
   } catch (error) {
     console.error("Error fetching enrollment by ID:", error);
     throw error;
   }
 }
 
-// Update the status of the enrollment (e.g., 'approved' or 'denied')
+
 async function updateEnrollmentStatus(enrollmentId, status) {
   const query = `
     UPDATE public.enrollments
@@ -117,21 +117,21 @@ async function updateEnrollmentStatus(enrollmentId, status) {
 
   try {
     const result = await pool.query(query, values);
-    return result.rows[0]; // Return the updated enrollment
+    return result.rows[0]; 
   } catch (error) {
     console.error("Error updating enrollment status:", error);
     throw error;
   }
 }
 
-// Get course details by course ID
+
 async function getCourseById(courseId) {
   const query = 'SELECT * FROM public.courses WHERE id = $1';
   const values = [courseId];
 
   try {
     const result = await pool.query(query, values);
-    return result.rows[0]; // Return the course details
+    return result.rows[0];
   } catch (error) {
     console.error("Error fetching course:", error);
     throw error;
@@ -158,10 +158,10 @@ const getApprovedEnrollmentsForStudent = async (studentId) => {
   const values = [studentId];
   try {
     const result = await pool.query(query, values);
-    return result.rows; // Return the rows of approved enrollments, now including teacher's name
+    return result.rows; 
   } catch (error) {
     console.error("Error fetching approved enrollments:", error);
-    throw error; // Rethrow the error to be handled by the calling function
+    throw error; 
   }
 };
 async function getCoursesWithStatus(studentId) {
@@ -192,7 +192,7 @@ async function getCoursesWithStatus(studentId) {
   }
 }
 
-// Get all approved enrolled students for a course
+
 async function getApprovedEnrolledStudents(courseId) {
   const query = `
     SELECT 

@@ -3,7 +3,7 @@ const db = require("../config/db");
 
 
 async function createAssignment(courseId, title, description, dueDate, answerType, allowedFileTypes, maxFileSize, maxFiles, attachments) {
-  // Insert assignment, fără tranzacție
+
   const assignmentInsertText = `
     INSERT INTO assignments (course_id, title, description, due_date, answer_type, allowed_file_types, max_file_size, max_files)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -23,7 +23,6 @@ async function createAssignment(courseId, title, description, dueDate, answerTyp
 
   const assignmentId = res.rows[0].id;
 
-  // Insert attachments (fără tranzacție)
   for (const file of attachments) {
     await db.query(
       `INSERT INTO assignment_attachments (assignment_id, file_data, file_name, mime_type) VALUES ($1, $2, $3, $4)`,
@@ -62,7 +61,7 @@ async function getAssignmentsByCourse(courseId) {
   return result.rows;
 }
 async function getAssignmentById(assignmentId) {
-  // 1. Obține assignment
+
   const assignmentQuery = `
     SELECT * FROM assignments
     WHERE id = $1;
@@ -72,7 +71,7 @@ async function getAssignmentById(assignmentId) {
 
   if (!assignment) return null;
 
-  // 2. Obține atașamentele assignment-ului
+
   const attachmentsQuery = `
     SELECT * FROM assignment_attachments
     WHERE assignment_id = $1;
@@ -80,14 +79,14 @@ async function getAssignmentById(assignmentId) {
   const attachmentsResult = await db.query(attachmentsQuery, [assignmentId]);
   const attachments = attachmentsResult.rows;
 
-  // 3. Returnează un obiect combinat
+
   return {
     ...assignment,
     attachments
   };
 }
 async function saveFileSubmission({ assignmentId, userId, fileName, mimeType, fileSize, fileData }) {
-  // 1. Check if user already has a submission for this assignment
+
   const res = await db.query(
     `SELECT id FROM assignment_submissions WHERE assignment_id = $1 AND user_id = $2`,
     [assignmentId, userId]
@@ -112,7 +111,7 @@ async function saveFileSubmission({ assignmentId, userId, fileName, mimeType, fi
     );
   }
 
-  // Save file
+
   await db.query(
     `INSERT INTO assignment_submission_files 
      (submission_id, file_name, mime_type, file_size, file_data, uploaded_at)
@@ -125,23 +124,23 @@ async function saveFileSubmission({ assignmentId, userId, fileName, mimeType, fi
 
 
 
-// Save a text answer submission (in assignment_submissions)
+
 async function saveTextSubmission({ assignmentId, userId, answer }) {
-  // Check if submission exists
+
   let res = await db.query(
     `SELECT id FROM assignment_submissions WHERE assignment_id = $1 AND user_id = $2`,
     [assignmentId, userId]
   );
 
   if (res.rows.length === 0) {
-    // Insert new submission
+
     await db.query(
       `INSERT INTO assignment_submissions (assignment_id, user_id, text_answer, status, submitted_at)
        VALUES ($1, $2, $3, $4, NOW())`,
       [assignmentId, userId, answer, 'submitted']
     );
   } else {
-    // Update existing submission
+
     const submissionId = res.rows[0].id;
     await db.query(
       `UPDATE assignment_submissions SET text_answer = $1, status = $2, submitted_at = NOW() WHERE id = $3`,
@@ -151,7 +150,7 @@ async function saveTextSubmission({ assignmentId, userId, answer }) {
 }
 
 
-// Get comments for an assignment, ordered by creation time asc
+
 async function getCommentsByAssignment(assignmentId) {
   const result = await db.query(
     `SELECT ac.id, ac.comment_text, ac.created_at, u.first_name, u.last_name
@@ -189,16 +188,16 @@ async function getSubmissionByAssignmentAndUser(assignmentId, userId) {
   );
 
   if (res.rows.length === 0) {
-    return null; // no submission found
+    return null; 
   }
 
-  // Organize files by submission
+
   const submission = {
     submissionId: res.rows[0].submission_id,
     status: res.rows[0].status,
     submittedAt: res.rows[0].submitted_at,
     grade: res.rows[0].grade,
-    feedback: res.rows[0].feedback,       // adăugat aici
+    feedback: res.rows[0].feedback,       
     lastModified: res.rows[0].last_modified,
     files: [],
   };
@@ -233,24 +232,24 @@ async function gradeAssignment(submissionId, grade, feedback) {
     `,
     [grade, feedback, submissionId]
   );
-  return result.rows[0]; // null dacă nu a fost găsit
+  return result.rows[0]; 
 }
 
 async function deleteFilesNotInList({ assignmentId, userId, keepFileIds }) {
-  // Găsește submission_id pentru user + assignment
+
   const res = await db.query(
     `SELECT id FROM assignment_submissions WHERE assignment_id = $1 AND user_id = $2`,
     [assignmentId, userId]
   );
 
   if (res.rows.length === 0) {
-    // Nu e nimic de șters
+
     return;
   }
 
   const submissionId = res.rows[0].id;
 
-  // Dacă nu există fișiere de păstrat, șterge tot
+
   if (!keepFileIds || keepFileIds.length === 0) {
     await db.query(
       `DELETE FROM assignment_submission_files WHERE submission_id = $1`,
@@ -259,7 +258,7 @@ async function deleteFilesNotInList({ assignmentId, userId, keepFileIds }) {
     return;
   }
 
-  // Construiește parametrizat lista de id-uri
+
   const placeholders = keepFileIds.map((_, i) => `$${i + 2}`).join(', ');
 
   const query = `
@@ -296,10 +295,10 @@ async function deleteEntireSubmission({ assignmentId, userId }) {
 
   const submissionId = res.rows[0].id;
 
-  // Șterge fișierele
+
   await db.query(`DELETE FROM assignment_submission_files WHERE submission_id = $1`, [submissionId]);
 
-  // Șterge submisia
+
   await db.query(`DELETE FROM assignment_submissions WHERE id = $1`, [submissionId]);
 }
 

@@ -1,6 +1,6 @@
 const db = require("../config/db");
 
-// Creează un submission nou
+
 async function createSubmission({
   test_id,
   user_id,
@@ -68,7 +68,7 @@ async function getAllSubmissions() {
   return rows;
 }
 
-// Returnează toate răspunsurile pentru un submission dat
+
 async function getAnswersBySubmissionId(submissionId) {
   const query = `
     SELECT id, test_submission_id, question_id, answer, answer_time, typing_speed, created_at
@@ -80,7 +80,6 @@ async function getAnswersBySubmissionId(submissionId) {
   return rows;
 }
 
-// Inserează un răspuns nou pentru un submission
 async function insertAnswer({ submissionId, question_id, answer, answer_time, typing_speed, idle_time, tests_passed, tests_total, test_results }) {
   const query = `
     INSERT INTO test_submissions_answers 
@@ -98,7 +97,7 @@ async function insertMultipleAnswers(submissionId, answers) {
   const allValues = [];
 
   answers.forEach((a, i) => {
-    // 9 parametri per row: submissionId + 8 coloane
+
     values.push(`($${i * 9 + 1}, $${i * 9 + 2}, $${i * 9 + 3}, $${i * 9 + 4}, $${i * 9 + 5}, $${i * 9 + 6}, $${i * 9 + 7}, $${i * 9 + 8}, $${i * 9 + 9})`);
     allValues.push(
       submissionId,
@@ -183,7 +182,7 @@ async function saveQuestionGrade(submissionId, questionId, grade) {
 }
 
 async function saveCodeSnapshot(userId, questionId, code) {
-  // 1. Inserare snapshot direct, fără să mai cauți answer id
+
   await db.query(
     `INSERT INTO coding_snapshots (user_id, question_id, snapshot_time, code)
      VALUES ($1, $2, NOW(), $3)`,
@@ -210,7 +209,7 @@ async function deleteAllSnapshotsForTest(testId) {
   try {
     await db.query('BEGIN');
 
-    // Șterge snapshot-urile pentru întrebările din testul dat
+
     const deleteSnapshotsQuery = `
       DELETE FROM public.coding_snapshots
       WHERE question_id IN (
@@ -227,7 +226,7 @@ async function deleteAllSnapshotsForTest(testId) {
 }
 
 
-// Exportă funcțiile
+
 module.exports = {
   createSubmission,
   getAllSubmissions,

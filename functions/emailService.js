@@ -1,7 +1,6 @@
 const nodemailer = require('nodemailer');
 require('dotenv').config();
-console.log('Yahoo user:', process.env.EMAIL_USER);
-console.log('Yahoo pass:', process.env.EMAIL_PASS ? '******' : 'undefined');
+
 
 const yahooTransporter = nodemailer.createTransport({
   service: 'yahoo',

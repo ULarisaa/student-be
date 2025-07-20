@@ -9,7 +9,8 @@ const {
   createUser,
   validatePassword,
   updateUserPassword,
-  hashPassword
+  hashPassword,
+  updateFirstLoginFlag
 } = require('../database/user');
 
 const authenticateToken = require('../functions/authTokens');
@@ -18,17 +19,16 @@ const authenticateToken = require('../functions/authTokens');
 const ACCESS_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-// In production, never fallback to weak secrets:
+
 if (!ACCESS_SECRET || !REFRESH_SECRET) {
   console.error('Missing JWT secrets in environment variables!');
   process.exit(1);
 }
 
-// Token expiration times
 const ACCESS_TOKEN_EXP = '15m';
 const REFRESH_TOKEN_EXP = '7d';
 
-// Helper to generate access token
+
 function generateAccessToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
@@ -37,7 +37,7 @@ function generateAccessToken(user) {
   );
 }
 
-// Helper to generate refresh token
+
 function generateRefreshToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
@@ -46,9 +46,9 @@ function generateRefreshToken(user) {
   );
 }
 
-// Instead of in-memory array, store refresh tokens in httpOnly cookies (safer)
 
-// Refresh token endpoint
+
+
 router.post('/refresh-token', (req, res) => {
   const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) {
@@ -63,7 +63,7 @@ router.post('/refresh-token', (req, res) => {
   });
 });
 
-// Register
+
 router.post('/register', async (req, res) => {
   const { firstName, lastName, email, password, role } = req.body;
 
@@ -80,7 +80,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -91,17 +91,21 @@ router.post('/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid password' });
 
+
+    const firstLogin = user.first_login;
+
+
+
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
- res.cookie('refreshToken', refreshToken, {
-  httpOnly: true,
-  secure: false,      // localhost: no https, so false
-  sameSite: 'lax',    // instead of 'strict', allows some cross-site requests (like top-level navigations and POSTs)
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/',          // optional but good practice
-});
-
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
 
     res.json({
       success: true,
@@ -110,7 +114,8 @@ router.post('/login', async (req, res) => {
       role: user.role,
       firstName: user.first_name,
       lastName: user.last_name,
-      userId: user.id
+      userId: user.id,
+      firstLogin: user.first_login
     });
 
   } catch (error) {
@@ -119,7 +124,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// PROFILE (protected)
+
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await getUserByEmail(req.user.email);
@@ -136,7 +141,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 router.post('/reset-password-request', async (req, res) => {
   const { email } = req.body;
 
-  // Basic email format validation
+
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return res.status(400).json({
       success: false,
@@ -145,11 +150,10 @@ router.post('/reset-password-request', async (req, res) => {
   }
 
   try {
-    // Try to fetch the user by email
+  
     const user = await getUserByEmail(email);
 
-    // For security reasons, always respond with the same message
-    // to prevent attackers from guessing existing accounts
+  
     const genericResponse = {
       success: true,
       message:
@@ -160,17 +164,17 @@ router.post('/reset-password-request', async (req, res) => {
       return res.json(genericResponse);
     }
 
-    // Generate a JWT token for password reset
+   
     const resetToken = jwt.sign({ email: user.email }, ACCESS_SECRET, {
       expiresIn: '15m',
     });
 
-    // Construct the reset URL
+ 
     const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
 
-    // Compose the email message
+
     const message = `
-Hi ${user.name || 'there'},
+Hi ${user.first_name || 'there'},
 
 We received a request to reset your password. Click the link below to choose a new one:
 
@@ -182,10 +186,10 @@ Best regards,
 ZeroCheating Classroom Support Team
     `.trim();
 
-    // Send the email
+
     await sendEmail(email, 'Reset Your Password - ZeroCheating', message);
 
-    // Respond with the generic message
+
     res.json(genericResponse);
   } catch (error) {
     console.error('Error generating reset token or sending email:', error);
@@ -197,7 +201,6 @@ ZeroCheating Classroom Support Team
   }
 });
 
-// RESET PASSWORD USING TOKEN
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
 
@@ -212,6 +215,9 @@ router.post('/reset-password', async (req, res) => {
     const newHashed = await hashPassword(newPassword);
     await updateUserPassword(email, newHashed);
 
+
+    await updateFirstLoginFlag(email, false);
+
     res.json({ success: true, message: 'Password successfully reset.' });
   } catch (error) {
     console.error('Reset password error:', error);
@@ -219,7 +225,8 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// CHANGE PASSWORD (authenticated)
+
+
 router.post('/change-password', authenticateToken, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
@@ -244,7 +251,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-// LOGOUT - clears the refresh token cookie
+
 router.post('/logout', (req, res) => {
   res.clearCookie('refreshToken', {
     httpOnly: true,

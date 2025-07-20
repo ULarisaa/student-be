@@ -3,7 +3,7 @@ const router = express.Router();
 const testSubmissionsQueries = require("../database/testSubmissions");
 const authenticateToken = require('../functions/authTokens');
 
-// Creează o test submission (dacă nu există deja pentru user+test)
+
 router.post("/", authenticateToken, async (req, res) => {
   const { test_id, user_id, status } = req.body;
 
@@ -16,7 +16,7 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Toate submissions (ex: pentru profesori/admini)
+
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const submissions = await testSubmissionsQueries.getAllSubmissions();
@@ -27,7 +27,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Răspunsuri pentru o test_submission (acces protejat - profesor sau student propriu)
+
 router.get("/:submissionId/answers", authenticateToken, async (req, res) => {
   const { submissionId } = req.params;
 
@@ -40,7 +40,7 @@ router.get("/:submissionId/answers", authenticateToken, async (req, res) => {
   }
 });
 
-// Salvează un singur răspuns
+
 router.post("/:submissionId/answers", authenticateToken, async (req, res) => {
   const { submissionId } = req.params;
   const { question_id, answer, answer_time, typing_speed } = req.body;
@@ -61,7 +61,7 @@ router.post("/:submissionId/answers", authenticateToken, async (req, res) => {
   }
 });
 
-// Bulk insert răspunsuri
+
 router.post("/:submissionId/answers/bulk", authenticateToken, async (req, res) => {
   const { submissionId } = req.params;
   const answers = req.body.answers;
@@ -75,7 +75,7 @@ router.post("/:submissionId/answers/bulk", authenticateToken, async (req, res) =
   }
 });
 
-// Submit test complet (cu statistici și toate răspunsurile)
+
 router.post("/:testId/submit", authenticateToken, async (req, res) => {
   const { testId } = req.params;
   const userId = req.user.id;
@@ -124,7 +124,7 @@ router.post("/:testId/submit", authenticateToken, async (req, res) => {
 router.get("/submission", authenticateToken, async (req, res) => {
   let { test_id, user_id } = req.query;
 
-  // Convert to integers if needed
+
   test_id = parseInt(test_id);
   user_id = parseInt(user_id);
 
@@ -163,10 +163,10 @@ router.post("/submission/save-grade", authenticateToken, async (req, res) => {
   const { submissionId, grade, questionGrades } = req.body;
 
   try {
-    // 1. Salvează nota totală
+
     await testSubmissionsQueries.saveSubmissionGrade(submissionId, grade);
 
-    // 2. Salvează notele pe întrebare
+
     for (const [questionId, questionGrade] of Object.entries(questionGrades)) {
       await testSubmissionsQueries.saveQuestionGrade(submissionId, questionId, questionGrade);
     }
@@ -179,7 +179,7 @@ router.post("/submission/save-grade", authenticateToken, async (req, res) => {
 });
 
 router.post("/:testSubmissionId/save-snapshot", authenticateToken, async (req, res) => {
-  const userId = req.user.id; // acum req.user există
+  const userId = req.user.id; 
   const { questionId, code } = req.body;
 
   if (!userId || !questionId || !code) {

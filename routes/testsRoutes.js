@@ -6,7 +6,7 @@ const {arraysEqual}= require("../functions/arraysEqual");
 const authenticateToken = require('../functions/authTokens');
 
 
-// Get all tests by course
+
 router.get("/:courseId/tests", authenticateToken, async (req, res) => {
   const { courseId } = req.params;
   try {
@@ -18,7 +18,7 @@ router.get("/:courseId/tests", authenticateToken, async (req, res) => {
   }
 });
 
-// Get a specific test by its ID
+
 router.get("/:testId", authenticateToken, async (req, res) => {
   const { testId } = req.params;
   try {
@@ -33,7 +33,7 @@ router.get("/:testId", authenticateToken, async (req, res) => {
   }
 });
 
-// Create a new test for a course
+
 router.post("/:courseId/create", authenticateToken, async (req, res) => {
   const { courseId } = req.params;
   const { name, startTime, endTime, duration, questions, allowSwitch, start_grade } = req.body;
@@ -57,7 +57,7 @@ router.post("/:courseId/create", authenticateToken, async (req, res) => {
   }
 });
 
-// Submit code for a specific question in a test
+
 router.post("/:testId/question/:questionId/submitq", authenticateToken, async (req, res) => {
   const { testId, questionId } = req.params;
   const { code } = req.body;
@@ -121,35 +121,21 @@ router.post("/:testId/question/:questionId/submitq", authenticateToken, async (r
   }
 });
 
-// Submit final test answers
-router.post("/:testId/submit", authenticateToken, async (req, res) => {
-  const { testId } = req.params;
-  const { responses } = req.body;
-
-  if (!responses) {
-    return res.status(400).json({ error: "Responses are required" });
-  }
-
-  try {
-    // TODO: Save student responses in DB
-    res.status(200).json({ message: "Test submitted successfully" });
-  } catch (error) {
-    console.error("Error submitting test:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 
 router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
   const { testId } = req.params;
   const userId = req.user.id;
-
+console.log(testId);
+console.log(userId);
   try {
     const { test } = await testQueries.getTestById(testId);
     if (!test) return res.status(404).json({ error: "Test not found" });
+    console.log(test);
 
     const submission = await testQueries.getSubmissionByTestAndUser(testId, userId);
     if (!submission) return res.status(404).json({ error: "Submission not found" });
+    console.log(submission);
 
     const answers = await testQueries.getAnswersBySubmissionId(submission.id);
     const questions = await testQueries.getQuestionsByTestId(testId);
@@ -166,7 +152,7 @@ router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
       maxScore += pts;
 
       if (!studentAnswer) {
-        // Nu are răspuns, nota 0
+
         continue;
       }
 
@@ -175,7 +161,7 @@ router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
       if (category === "multiple_choice") {
         try {
           if (!correct_answers || (typeof correct_answers === "string" && correct_answers.trim() === "")) {
-            // nu putem evalua corect, nota 0
+        
             expectedGradeForQuestion = 0;
           } else if (!studentAnswer.answer || (typeof studentAnswer.answer === "string" && studentAnswer.answer.trim() === "")) {
             expectedGradeForQuestion = 0;
@@ -220,11 +206,11 @@ router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
         }
       }
       else if (category === "free_answer") {
-        // Free answer: nu se calculează automat, punctaj 0
+
         expectedGradeForQuestion = 0;
       }
       else {
-        // Alte categorii necunoscute: punctaj 0
+  
         expectedGradeForQuestion = 0;
       }
 
@@ -239,6 +225,7 @@ router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
       expectedGrade: totalScore.toFixed(2),
       questionCategories: Array.from(questionCategories) 
     });
+ 
 
   } catch (error) {
     console.error("Evaluation error:", error);
@@ -246,7 +233,7 @@ router.get('/:testId/evaluate', authenticateToken, async (req, res) => {
   }
 });
 
-// Get only questions for a specific test by testId
+
 router.get("/:testId/questions", authenticateToken, async (req, res) => {
   const { testId } = req.params;
 

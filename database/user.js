@@ -1,30 +1,33 @@
-const db = require('./../config/db'); // Assume you're using pg-db for PostgreSQL connection
+const db = require('./../config/db'); 
 const bcrypt = require('bcrypt');
-
 async function getUserByEmail(email) {
-    const query = 'SELECT first_name, last_name, email, password, role, id FROM public."user" WHERE email = $1';
-    const values = [email];
-  
-    try {
-      const result = await db.query(query, values);
-      if (result.rows.length > 0) {
-        return result.rows[0]; // Return the first matching user
-      }
-      return null; // No user found
-    } catch (error) {
-      console.error('Error getting user by email:', error);
-      throw error;
-    }
-  }
+  const query = `
+    SELECT first_name, last_name, email, password, role, id, first_login
+    FROM public."user"
+    WHERE email = $1
+  `;
+  const values = [email];
 
-// Function to compare the input password with the stored hashed password
+  try {
+    const result = await db.query(query, values);
+    if (result.rows.length > 0) {
+      return result.rows[0]; 
+    }
+    return null; 
+  } catch (error) {
+    console.error('Error getting user by email:', error);
+    throw error;
+  }
+}
+
+
 async function validatePassword(inputPassword, storedPassword) {
   try {
     const isMatch = await bcrypt.compare(inputPassword, storedPassword);
     return isMatch;
   } catch (error) {
     console.error('Error validating password:', error);
-    throw error; // Rethrow error to be handled in the route
+    throw error; 
   }
 }
 
@@ -34,7 +37,7 @@ async function hashPassword(password) {
     return hashedPassword;
   }
   
-  // Function to create a new user (including first name and last name)
+
   async function createUser(firstName, lastName, email, password, role) {
     const hashedPassword = await hashPassword(password);
     const query = 'INSERT INTO public."user" (first_name, last_name, email, password, role) VALUES ($1, $2, $3, $4, $5)';
@@ -45,7 +48,7 @@ async function hashPassword(password) {
       console.log(`User created with email: ${email}`);
     } catch (error) {
       console.error('Error creating user:', error);
-      throw error; // Rethrow error for handling in route
+      throw error; 
     }
   }
 async function updateUserPassword(email, hashedPassword) {
@@ -78,12 +81,22 @@ async function sendResetPasswordEmail(toEmail, resetLink) {
 }
 
 
+
+async function updateFirstLoginFlag(email, flag) {
+  await db.query(
+    'UPDATE public."user" SET first_login = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
+    [flag, email]
+  );
+}
+
+
 module.exports = {
   getUserByEmail,
   validatePassword,
   createUser,
   updateUserPassword, 
   hashPassword,
-  sendResetPasswordEmail
+  sendResetPasswordEmail, 
+  updateFirstLoginFlag
 };
 

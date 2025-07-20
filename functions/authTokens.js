@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'Secret'; // Load the secret key
+const JWT_SECRET = process.env.JWT_SECRET || 'Secret'; 
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -11,7 +11,7 @@ function authenticateToken(req, res, next) {
     return res.status(403).json({ error: 'Token is required and must be in Bearer format' });
   }
 
-  // Verify the token
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       console.error('Token error:', err);
@@ -23,7 +23,7 @@ function authenticateToken(req, res, next) {
       return res.status(403).json({ error: 'Invalid token' });
     }
 
-    req.user = user; // Attach user data to the request object
+    req.user = user; 
     next();
   });
 }
